@@ -1,0 +1,6 @@
+@PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+find_dependency(Qt6 REQUIRED COMPONENTS Core)
+find_dependency(account 0.4 REQUIRED  CONFIG)
+find_dependency(nodeConection 0.4 REQUIRED  CONFIG)
+include ( "${CMAKE_CURRENT_LIST_DIR}/qwalletTargets.cmake" )
