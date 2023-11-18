@@ -21,9 +21,13 @@ std::shared_ptr<const Address> AddressBox::getAddress(void)const
 {
     return m_addr;
 }
+QString AddressBox::getAddressHash(void)const
+{
+    return m_addr->addrhash().toHexString();
+}
 QString AddressBox::getAddressBech32(const QString hrp)const
 {
-    const auto addr=qencoding::qbech32::Iota::encode(hrp,getAddress()->addr());
+    const auto addr=qencoding::qbech32::Iota::encode(hrp,m_addr->addr());
     return addr;
 }
 void AddressBox::monitorToExpire(const QString& outId,const quint32 unixTime)
@@ -93,7 +97,33 @@ void AddressBox::rmAddrBox(const QString& outId)
     setAmount(m_amount-var->amount());
     var->deleteLater();
 }
-
+pvector<const Unlock> AddressBox::getUnlocks(const QByteArray & message, const quint16 &ref, const std::set<QString>& outIds)
+{
+    pvector<const Unlock> unlocks;
+    for(const auto& v:outIds)
+    {
+        if(m_addr->type()==Address::Ed25519_typ)
+        {
+            if(unlocks.size())
+            {
+                unlocks.push_back(Unlock::Reference(ref));
+            }
+            else
+            {
+                unlocks.push_back(Unlock::Signature(Signature::Ed25519(m_keyPair.first,qcrypto::qed25519::sign(m_keyPair,message))));
+            }
+        }
+        if(m_addr->type()==qblocks::Address::Alias_typ)
+        {
+            unlocks.push_back(Unlock::Alias(ref));
+        }
+        if(m_addr->type()==qblocks::Address::NFT_typ)
+        {
+            unlocks.push_back(Unlock::NFT(ref));
+        }
+    }
+    return unlocks;
+}
 void AddressBox::getOutputs(std::vector<Node_output> &outs_, const quint64 amount_need_it, quint16 howMany)
 {
 
@@ -201,7 +231,7 @@ void Wallet::sync(void)
     if(Node_Conection::instance()->state()==Node_Conection::Connected)
     {
         m_instance=new Wallet(Wallet::instance()->parent());
-        for(quint32 pub=0;pub<2;pub++)
+        for(quint32 pub=0;pub<1;pub++)
         {
             for (quint32 i=0;i<addressRange;i++)
             {
@@ -217,6 +247,7 @@ void Wallet::sync(void)
         deleteLater();
     }
 }
+
 void Wallet::checkAddress(AddressBox  *addressBundle)
 {
     auto info=Node_Conection::instance()->rest()->get_api_core_v2_info();
@@ -249,27 +280,155 @@ void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundl
     addressBundle->getOutputs(outs);
     const auto outid=addressBundle->outId();
     const auto prevVec=m_outputs.value(outid);
-    for (auto i = addressBundle->inputs().cbegin(), end = addressBundle->inputs().cend(); i != end; ++i)
+    const auto inputs=addressBundle->inputs();
+    for (auto i = inputs.cbegin(), end = inputs.cend(); i != end; ++i)
     {
         auto newVec=prevVec;
         newVec.push_back(std::make_pair(addressBundle,i.key()));
         m_outputs.insert(i.key(),newVec);
     }
-    connect(addressBundle,&AddressBox::inputAdded,[=](auto id){
+    connect(addressBundle,&AddressBox::inputAdded,this,[=](auto id){
         auto newVec=prevVec;
         newVec.push_back(std::make_pair(addressBundle,id));
         m_outputs.insert(id,newVec);
     });
-    connect(addressBundle,&AddressBox::inputRemoved,[=](auto id){
+    connect(addressBundle,&AddressBox::inputRemoved,this,[=](auto id){
         m_outputs.remove(id);
+        usedOutIds.erase(id);
     });
-    for (auto v:addressBundle->addrBoxes())
+    for (const auto & v:addressBundle->addrBoxes())
     {
         checkAddress(v);
     }
-    connect(addressBundle,&AddressBox::addrAdded,[=](auto id){
+    connect(addressBundle,&AddressBox::addrAdded,this,[=](auto id){
         checkAddress(addressBundle->addrBoxes().value(id));
     });
 }
+quint64 Wallet::consumeInbox(const QString & outId,const InBox & inBox,
+                             QHash<QString, std::shared_ptr<Output> > &stateOutputs)const
+{
+
+    if(inBox.output->type()!=Output::Basic_typ)
+    {
+        stateOutputs.insert(outId,inBox.output);
+    }
+
+    return inBox.amount;
+}
+
 
 }
+quint64 Wallet::consumeInputs(const QString & outId,
+                              InputSet& inputSet,QHash<QString,std::shared_ptr<Output>>& stateOutputs)
+{
+    quint64 amount=0;
+    if(!usedOutIds.contains(outId))
+    {
+        std::vector<std::pair<AddressBox*,std::set<QString>>>::iterator lastIt;
+        for(const auto& v:m_outputs.value(outId) )
+        {
+            bool addrExist=false;
+            for(auto it=inputSet.begin(); it != inputSet.end(); it++)
+            {
+                if(it->first->getAddressHash()==v.first->getAddressHash())
+                {
+                    lastIt=it;
+                    addrExist=true;
+                    if(!it->second.contains(v.second))
+                    {
+                        amount+=consumeInbox(v.second,v.first->inputs().value(v.second),stateOutputs);
+                        it->second.insert(v.second);
+                    }
+                    break;
+                }
+            }
+            if(!addrExist)
+            {
+                if(v.first->outId().isEmpty())
+                {
+                    inputSet.push_back(std::make_pair(v.first,std::set<QString>{v.second}));
+                }
+                else
+                {
+                    lastIt++;
+                    inputSet.insert(lastIt,std::make_pair(v.first,std::set<QString>{v.second}));
+                }
+                amount+=consumeInbox(v.second,v.first->inputs().value(v.second),stateOutputs);
+            }
+
+        }
+
+    }
+    return amount;
+}
+quint64 Wallet::consume(InputSet& inputSet, QHash<QString,std::shared_ptr<Output>>& stateOutputs,const quint64 &amountNeedIt,
+                        const std::set<QString> &outids)
+{
+    quint64 amount=0;
+
+    for(const auto&v:outids)
+    {
+        amount+=consumeInputs(v,inputSet,stateOutputs);
+    }
+
+    for (auto i = m_outputs.cbegin(), end = m_outputs.cend(); i != end||(amount<amountNeedIt); ++i)
+    {
+        amount+=consumeInputs(i.key(),inputSet,stateOutputs);
+    }
+    return amount;
+}
+
+pvector<const Unlock> Wallet::createUnlocks(const InputSet& inputSet,const qblocks::c_array& essenceHash)const
+{
+    pvector<const Unlock> theUnlocks;
+    quint16 ref=0;
+    std::pair<AddressBox*,std::set<QString>> prev;
+    for(const auto& v:inputSet)
+    {
+        const auto outIds=v.second;
+        const auto addressBox=v.first;
+
+        auto varRef=ref;
+        if(!addressBox->outId().isEmpty())
+        {
+            const auto posi=std::distance(prev.second.find(addressBox->outId()),prev.second.end());
+            varRef-=posi;
+        }
+        const auto unlocks=v.first->getUnlocks(essenceHash,varRef,v.second);
+        theUnlocks.insert(theUnlocks.end(), unlocks.begin(), unlocks.end());
+
+        ref+=outIds.size();
+        prev=v;
+    }
+    return theUnlocks;
+}
+std::pair<std::shared_ptr<const Payload>,std::set<QString>>
+Wallet::createTransaction(const InputSet& inputSet,Node_info* info, const pvector<const Output>& outputs)
+{
+    pvector<const Input> inputs;
+    qblocks::c_array InputsHash;
+    pvector<const Output> theOutputs=outputs;
+    std::set<QString> usedIds;
+    for(const auto& v:inputSet)
+    {
+
+        for(const auto& outId:v.second)
+        {
+            usedIds.insert(outId);
+            const auto inBox=v.first->inputs().value(outId);
+            inputs.push_back(inBox.input);
+            InputsHash+=inBox.inputHash;
+            if(inBox.retOutput)theOutputs.push_back(inBox.retOutput);
+        }
+
+    }
+    auto InputsCommitment=Block::get_inputs_Commitment(InputsHash);
+    auto essence=Essence::Transaction(info->network_id_,inputs,InputsCommitment,theOutputs);
+    const auto essenceHash=essence->get_hash();
+    const auto unlocks=createUnlocks(inputSet,essenceHash);
+
+    return std::make_pair(Payload::Transaction(essence,unlocks),usedIds);
+}
+
+
+
