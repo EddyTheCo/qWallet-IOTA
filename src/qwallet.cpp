@@ -33,16 +33,16 @@ QString AddressBox::getAddressBech32(const QString hrp)const
 void AddressBox::monitorToExpire(const QString& outId,const quint32 unixTime)
 {
     const auto triger=(unixTime-QDateTime::currentDateTime().toSecsSinceEpoch())*1000;
-    QTimer::singleShot(triger,this,[=](){
+    QTimer::singleShot(triger,this,[=,this](){
         rmInput(outId);
     });
 }
 void AddressBox::monitorToUnlock(const QString& outId,const quint32 unixTime)
 {
     const auto triger=(unixTime-QDateTime::currentDateTime().toSecsSinceEpoch())*1000;
-    QTimer::singleShot(triger,this,[=](){
-        auto resp=Node_Conection::instance()->mqtt()->get_outputs_outputId(outId);
-        connect(resp,&ResponseMqtt::returned,this,[=](QJsonValue data){
+    QTimer::singleShot(triger,this,[=,this](){
+        auto resp=NodeConnection::instance()->mqtt()->get_outputs_outputId(outId);
+        connect(resp,&ResponseMqtt::returned,this,[=,this](QJsonValue data){
             auto node_outputs=std::vector<Node_output>{Node_output(data)};
             getOutputs({node_outputs});
             resp->deleteLater();
@@ -51,8 +51,8 @@ void AddressBox::monitorToUnlock(const QString& outId,const quint32 unixTime)
 }
 void AddressBox::monitorToSpend(const QString& outId)
 {
-    auto resp=Node_Conection::instance()->mqtt()->get_outputs_outputId(outId);
-    connect(resp,&ResponseMqtt::returned,this,[=](QJsonValue data){
+    auto resp=NodeConnection::instance()->mqtt()->get_outputs_outputId(outId);
+    connect(resp,&ResponseMqtt::returned,this,[=,this](QJsonValue data){
         const auto node_output=Node_output(data);
         if(node_output.metadata().is_spent_)
         {
@@ -85,7 +85,7 @@ void AddressBox::rmInput(const QString& outId)
 void AddressBox::addAddrBox(const QString& outId,AddressBox* addrBox)
 {
     emit addrAdded(outId);
-    connect(addrBox,&AddressBox::amountChanged,this,[=](const auto prevA,const auto nextA){
+    connect(addrBox,&AddressBox::amountChanged,this,[this](const auto prevA,const auto nextA){
         setAmount(m_amount-prevA+nextA);
     });
     m_AddrBoxes.insert(outId,addrBox);
@@ -228,7 +228,7 @@ Wallet* Wallet::instance()
 }
 void Wallet::sync(void)
 {
-    if(Node_Conection::instance()->state()==Node_Conection::Connected)
+    if(NodeConnection::instance()->state()==NodeConnection::Connected)
     {
         m_instance=new Wallet(Wallet::instance()->parent());
         for(quint32 pub=0;pub<1;pub++)
@@ -237,7 +237,7 @@ void Wallet::sync(void)
             {
                 auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}),Wallet::instance());
 
-                connect(addressBundle,&AddressBox::amountChanged,this,[=](auto prevA,auto nextA){
+                connect(addressBundle,&AddressBox::amountChanged,this,[this](auto prevA,auto nextA){
                     m_amount=m_amount-prevA + nextA;
                     emit amountChanged();
                 });
@@ -250,27 +250,27 @@ void Wallet::sync(void)
 
 void Wallet::checkAddress(AddressBox  *addressBundle)
 {
-    auto info=Node_Conection::instance()->rest()->get_api_core_v2_info();
-    connect(info,&Node_info::finished,this,[=]( ){
+    auto info=NodeConnection::instance()->rest()->get_api_core_v2_info();
+    connect(info,&Node_info::finished,this,[=,this]( ){
         const auto bech32address=addressBundle->getAddressBech32(info->bech32Hrp);
         m_addresses.insert(bech32address,addressBundle);
-        connect(addressBundle,&QObject::destroyed,this,[=](){
+        connect(addressBundle,&QObject::destroyed,this,[=,this](){
             m_addresses.remove(bech32address);
         });
         const auto addressBech32=addressBundle->getAddressBech32(info->bech32Hrp);
-        auto node_outputs_=new Node_outputs();
-        connect(node_outputs_,&Node_outputs::finished,addressBundle,[=]( ){
-            checkOutputs(node_outputs_->outs_,addressBundle);
-            node_outputs_->deleteLater();
-            auto resp=Node_Conection::instance()->mqtt()->
+        auto nodeOutputs=new Node_outputs(NodeConnection::instance());
+        connect(nodeOutputs,&Node_outputs::finished,addressBundle,[=,this]( ){
+            checkOutputs(nodeOutputs->outs_,addressBundle);
+            nodeOutputs->deleteLater();
+            auto resp=NodeConnection::instance()->mqtt()->
                         get_outputs_unlock_condition_address("address/"+addressBech32);
-            connect(resp,&ResponseMqtt::returned,addressBundle,[=](QJsonValue data)
+            connect(resp,&ResponseMqtt::returned,addressBundle,[=,this](QJsonValue data)
                     {
                         checkOutputs({Node_output(data)},addressBundle);
                     });
         });
-        Node_Conection::instance()->rest()->
-            get_outputs<Output::All_typ>(node_outputs_,"unlockableByAddress="+addressBech32);
+        NodeConnection::instance()->rest()->
+            get_outputs<Output::All_typ>(nodeOutputs,"unlockableByAddress="+addressBech32);
         info->deleteLater();
     });
 }
@@ -287,12 +287,12 @@ void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundl
         newVec.push_back(std::make_pair(addressBundle,i.key()));
         m_outputs.insert(i.key(),newVec);
     }
-    connect(addressBundle,&AddressBox::inputAdded,this,[=](auto id){
+    connect(addressBundle,&AddressBox::inputAdded,this,[=,this](auto id){
         auto newVec=prevVec;
         newVec.push_back(std::make_pair(addressBundle,id));
         m_outputs.insert(id,newVec);
     });
-    connect(addressBundle,&AddressBox::inputRemoved,this,[=](auto id){
+    connect(addressBundle,&AddressBox::inputRemoved,this,[this](auto id){
         m_outputs.remove(id);
         usedOutIds.erase(id);
     });
@@ -300,7 +300,7 @@ void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundl
     {
         checkAddress(v);
     }
-    connect(addressBundle,&AddressBox::addrAdded,this,[=](auto id){
+    connect(addressBundle,&AddressBox::addrAdded,this,[=,this](auto id){
         checkAddress(addressBundle->addrBoxes().value(id));
     });
 }
@@ -316,8 +316,6 @@ quint64 Wallet::consumeInbox(const QString & outId,const InBox & inBox,
     return inBox.amount;
 }
 
-
-}
 quint64 Wallet::consumeInputs(const QString & outId,
                               InputSet& inputSet,QHash<QString,std::shared_ptr<Output>>& stateOutputs)
 {
@@ -426,9 +424,8 @@ Wallet::createTransaction(const InputSet& inputSet,Node_info* info, const pvecto
     auto essence=Essence::Transaction(info->network_id_,inputs,InputsCommitment,theOutputs);
     const auto essenceHash=essence->get_hash();
     const auto unlocks=createUnlocks(inputSet,essenceHash);
-
     return std::make_pair(Payload::Transaction(essence,unlocks),usedIds);
 }
 
-
+}
 
