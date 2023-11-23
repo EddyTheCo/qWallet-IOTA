@@ -73,7 +73,8 @@ private:
 
 };
 using InputSet = std::vector<std::pair<AddressBox*,std::set<QString>>>;
-using StateOutputs=QHash<QString,std::shared_ptr<Output>>;
+using StateOutputs=QHash<QString,InBox>;
+using InputMap=QHash<QString,std::vector<std::pair<AddressBox*,QString>>>;
 class QWALLET_EXPORT Wallet: public QObject
 {
     Q_OBJECT
@@ -84,6 +85,7 @@ public:
 
     auto amount(void)const{return m_amount;};
     auto addresses()const{return m_addresses;}
+    auto inputs()const{return m_outputs;}
     quint64 consume(InputSet& inputSet, StateOutputs &stateOutputs,
                     const quint64& amountNeedIt=0, const std::set<QString> &outids={});
     std::pair<std::shared_ptr<const Payload>,std::set<QString>> createTransaction
@@ -103,7 +105,7 @@ private:
     void checkAddress(AddressBox *addressBundle);
     quint64 m_amount;
     quint32 accountIndex, addressRange;
-    QHash<QString,std::vector<std::pair<AddressBox*,QString>>> m_outputs; //use better a map for ordering the inputs to consume them
+    InputMap m_outputs; //use better a map for ordering the inputs to consume them
     std::set<QString> usedOutIds;
     QHash<QString,AddressBox*> m_addresses; //use better a map to order the address to use mostly the 0 index ed25519
     static Wallet * m_instance;

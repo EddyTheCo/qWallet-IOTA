@@ -65,12 +65,14 @@ void AddressBox::monitorToSpend(const QString& outId)
 void AddressBox::addInput(const QString& outId,const InBox& inBox)
 {
     emit inputAdded(outId);
-    setAmount(m_amount+inBox.amount);
     m_inputs.insert(outId,inBox);
     if(inBox.output->type()==Output::NFT_typ)
+    {
         addAddrBox(outId,new AddressBox(Address::NFT(inBox.output->get_id()),this,outId));
+    }
     if(inBox.output->type()==Output::Alias_typ)
         addAddrBox(outId,new AddressBox(Address::Alias(inBox.output->get_id()),this,outId));
+    setAmount(m_amount+inBox.amount);
 }
 void AddressBox::rmInput(const QString& outId)
 {
@@ -84,11 +86,11 @@ void AddressBox::rmInput(const QString& outId)
 }
 void AddressBox::addAddrBox(const QString& outId,AddressBox* addrBox)
 {
-    emit addrAdded(outId);
     connect(addrBox,&AddressBox::amountChanged,this,[this](const auto prevA,const auto nextA){
         setAmount(m_amount-prevA+nextA);
     });
     m_AddrBoxes.insert(outId,addrBox);
+    emit addrAdded(outId);
 }
 void AddressBox::rmAddrBox(const QString& outId)
 {
@@ -207,7 +209,6 @@ void AddressBox::getOutputs(std::vector<Node_output> &outs_, const quint64 amoun
             }
             inBox.output=output_;
             inBox.amount+=output_->amount_-retAmount;
-            qDebug()<<"inBox.amount:"<<inBox.amount;
             monitorToSpend(v.metadata().outputid_.toHexString());
             addInput(v.metadata().outputid_.toHexString(),inBox);
 
@@ -245,11 +246,12 @@ void Wallet::sync(void)
         {
             auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}),
                                                 Wallet::instance());
+
+            checkAddress(addressBundle);
             connect(addressBundle,&AddressBox::amountChanged,this,[this](auto prevA,auto nextA){
                 m_amount=m_amount-prevA + nextA;
                 emit amountChanged();
             });
-            checkAddress(addressBundle);
         }
     }
     emit synced();
@@ -258,13 +260,11 @@ void Wallet::sync(void)
 
 void Wallet::checkAddress(AddressBox  *addressBundle)
 {
-
     auto info=NodeConnection::instance()->rest()->get_api_core_v2_info();
     connect(info,&Node_info::finished,this,[=,this]( ){
         const auto addressBech32=addressBundle->getAddressBech32(info->bech32Hrp);
-        qDebug()<<"wallet has address:"<<addressBech32;
-        m_addresses.insert(addressBech32,addressBundle);
 
+        m_addresses.insert(addressBech32,addressBundle);
         connect(addressBundle,&QObject::destroyed,this,[=,this](){
             m_addresses.remove(addressBech32);
         });
@@ -287,32 +287,23 @@ void Wallet::checkAddress(AddressBox  *addressBundle)
 
 void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundle)
 {
-    addressBundle->getOutputs(outs);
     const auto outid=addressBundle->outId();
     const auto prevVec=m_outputs.value(outid);
     const auto inputs=addressBundle->inputs();
-    for (auto i = inputs.cbegin(), end = inputs.cend(); i != end; ++i)
-    {
-        auto newVec=prevVec;
-        newVec.push_back(std::make_pair(addressBundle,i.key()));
-        m_outputs.insert(i.key(),newVec);
-    }
+
     connect(addressBundle,&AddressBox::inputAdded,this,[=,this](auto id){
         auto newVec=prevVec;
         newVec.push_back(std::make_pair(addressBundle,id));
         m_outputs.insert(id,newVec);
     });
+    connect(addressBundle,&AddressBox::addrAdded,this,[=,this](auto id){
+        checkAddress(addressBundle->addrBoxes().value(id));
+    });
     connect(addressBundle,&AddressBox::inputRemoved,this,[this](auto id){
         m_outputs.remove(id);
         usedOutIds.erase(id);
     });
-    for (const auto & v:addressBundle->addrBoxes())
-    {
-        checkAddress(v);
-    }
-    connect(addressBundle,&AddressBox::addrAdded,this,[=,this](auto id){
-        checkAddress(addressBundle->addrBoxes().value(id));
-    });
+    addressBundle->getOutputs(outs);
 }
 quint64 Wallet::consumeInbox(const QString & outId,const InBox & inBox,
                              StateOutputs &stateOutputs)const
@@ -320,7 +311,7 @@ quint64 Wallet::consumeInbox(const QString & outId,const InBox & inBox,
 
     if(inBox.output->type()!=Output::Basic_typ)
     {
-        stateOutputs.insert(outId,inBox.output);
+        stateOutputs.insert(outId,inBox);
     }
 
     return inBox.amount;
