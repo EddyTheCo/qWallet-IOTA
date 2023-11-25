@@ -1,6 +1,6 @@
 
 find_package(Qt6 REQUIRED COMPONENTS Core Network)
-foreach(example "basic_output"
+foreach(example "basic_output" "nft_output"
 		)
 	qt_add_executable( ${example}  ${example}.cpp)
 	message(STATUS "Configuring example ${example}" )
