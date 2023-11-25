@@ -48,14 +48,15 @@ signals:
     void changed();
     void inputRemoved(QString);
     void inputAdded(QString);
-    void addrAdded(QString);
-    void addrRemoved(QString);
+    void addrAdded(AddressBox*);
+    void addrRemoved(AddressBox*);
 
 private:
+    void clean();
     void monitorToSpend(const QString& outId);
     void monitorToExpire(const QString& outId,const quint32 unixTime);
     void monitorToUnlock(const QString& outId,const quint32 unixTime);
-    void rmInput(const QString& outId);
+    void rmInput(const QString outId);
     void addInput(const QString& outId,const InBox& inBox);
     void rmAddrBox(const QString& outId);
     void addAddrBox(const QString& outId,AddressBox* addrBox);
@@ -87,11 +88,14 @@ public:
     auto addresses()const{return m_addresses;}
     auto inputs()const{return m_outputs;}
     quint64 consume(InputSet& inputSet, StateOutputs &stateOutputs,
-                    const quint64& amountNeedIt=0, const std::set<QString> &outids={});
+                    const quint64& amountNeedIt=0,
+                    const std::set<Output::types>& onlyType={Output::All_typ},
+                    const std::set<QString> &outids={});
     std::pair<std::shared_ptr<const Payload>,std::set<QString>> createTransaction
         (const InputSet &inputSet, Node_info* info, const pvector<const Output> &outputs);
     void checkOutputs(std::vector<Node_output>  outs, AddressBox *addressBundle);
 signals:
+    void addressesChanged(QString);
     void amountChanged();
     void ready();
     void synced();
