@@ -33,9 +33,9 @@ int main(int argc, char** argv)
 
                 QObject::connect(Wallet::instance(),&Wallet::amountChanged,&a,[=,&a](){
                     qDebug()<<"Amount on the wallet:"<<Wallet::instance()->amount();
-                    for(auto v:Wallet::instance()->addresses())
+                    for(const auto& [key,value]:Wallet::instance()->addresses())
                     {
-                        qDebug()<<v->getAddressBech32(info->bech32Hrp);
+                        qDebug()<<value->getAddressBech32(info->bech32Hrp);
                     }
                     static auto sent{false};
                     const auto address=Account::instance()->getAddr({0,0,0}); //We need to order the addresses on the wallet

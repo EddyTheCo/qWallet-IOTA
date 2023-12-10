@@ -25,20 +25,20 @@ int main(int argc, char** argv)
         QObject::connect(Wallet::instance(),&Wallet::ready,&a,[=,&a](){
 
             qDebug()<<"Wallet::ready";
-            QObject::connect(Wallet::instance(),&Wallet::addressesChanged,&a,[=,&a](auto addr){
-                qDebug()<<"Wallet added or removed address:"<<addr;
+            QObject::connect(Wallet::instance(),&Wallet::addressesChanged,&a,[=,&a](c_array addr){
+                qDebug()<<"Wallet added or removed address:"<<qencoding::qbech32::Iota::encode("rms",addr);
             });
             auto info=NodeConnection::instance()->rest()->get_api_core_v2_info();
 
             QObject::connect(info,&Node_info::finished,&a,[=,&a]( ){
                 QObject::connect(Wallet::instance(),&Wallet::amountChanged,&a,[=,&a](){
                     qDebug()<<"Amount on the wallet:"<<Wallet::instance()->amount();
-
-                    if(Wallet::instance()->addresses().contains("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j"))
+                    const auto serialaddress=qencoding::qbech32::Iota::decode("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j").second;
+                    if(Wallet::instance()->addresses()
+                            [serialaddress])
                     {
                         static auto sent{false};
-                        const auto addB=Wallet::instance()->addresses().
-                                          value("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j");
+                        const auto addB=Wallet::instance()->addresses()[serialaddress];
                         const auto parentOutId=addB->outId();
                         qDebug()<<"parentOutId:"<<parentOutId;
                         const auto address=addB->getAddress();
@@ -73,7 +73,7 @@ int main(int argc, char** argv)
                             consumedAmount+=Wallet::instance()->
                                               consume(inputSet,stateOutputs,0,{Output::Basic_typ},{});
                         }
-
+                        qDebug()<<"Try again";
                         stateAmount=0;
                         for(const auto &v:std::as_const(stateOutputs))
                         {

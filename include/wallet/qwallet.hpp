@@ -49,7 +49,7 @@ signals:
     void inputRemoved(QString);
     void inputAdded(QString);
     void addrAdded(AddressBox*);
-    void addrRemoved(AddressBox*);
+    void addrRemoved(c_array);
 
 private:
     void clean();
@@ -95,13 +95,14 @@ public:
         (const InputSet &inputSet, Node_info* info, const pvector<const Output> &outputs);
     void checkOutputs(std::vector<Node_output>  outs, AddressBox *addressBundle);
 signals:
-    void addressesChanged(QString);
+    void addressesChanged(c_array);
     void amountChanged();
     void ready();
     void synced();
 private:
     void sync(void);
     void reset(void);
+    void addAddress(AddressBox*addressBundle);
     pvector<const Unlock> createUnlocks(const InputSet& inputSet, const c_array &essenceHash)const;
     quint64 consumeInputs(const QString & outId, InputSet &inputSet, StateOutputs &stateOutputs);
     quint64 consumeInbox(const QString & outId,const InBox & inBox, StateOutputs &stateOutputs)const;
@@ -111,7 +112,7 @@ private:
     quint32 accountIndex, addressRange;
     InputMap m_outputs; //use better a map for ordering the inputs to consume them
     std::set<QString> usedOutIds;
-    QHash<QString,AddressBox*> m_addresses; //use better a map to order the address to use mostly the 0 index ed25519
+    std::map<c_array,AddressBox*> m_addresses;
     static Wallet * m_instance;
 
 
