@@ -33,14 +33,35 @@ int main(int argc, char** argv)
             QObject::connect(info,&Node_info::finished,&a,[=,&a]( ){
                 QObject::connect(Wallet::instance(),&Wallet::amountChanged,&a,[=,&a](){
                     qDebug()<<"Amount on the wallet:"<<Wallet::instance()->amount();
-                    const auto serialaddress=qencoding::qbech32::Iota::decode("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j").second;
-                    if(Wallet::instance()->addresses()
-                            [serialaddress])
+
+                    for(const auto& [key,value]:Wallet::instance()->addresses())
+                    {
+                        qDebug()<<"address:"<<qencoding::qbech32::Iota::encode("rms",key);
+                        qDebug()<<"amount:"<<value->amount();
+                        for (auto i = value->inputs().cbegin(), end = value->inputs().cend(); i != end; ++i)
+                        {
+                            qDebug()<<"\t input:" << i.key().toHexString();
+                            qDebug()<<"\t amount:"<<i.value().amount;
+                        }
+                    }
+                    qDebug()<<"inputs:";
+                    for(const auto& [key,value]:Wallet::instance()->inputs())
+                    {
+                        qDebug()<<key.toHexString();
+                        for(const auto &v: value)
+                        {
+                            qDebug()<<"\t address:"<<v.first->getAddressBech32("rms");
+                            qDebug()<<"\t outid: "<<v.second.toHexString();
+                        }
+                    }
+
+                   const auto serialaddress=qencoding::qbech32::Iota::decode("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j").second;
+                    if(Wallet::instance()->addresses().contains(serialaddress))
                     {
                         static auto sent{false};
                         const auto addB=Wallet::instance()->addresses()[serialaddress];
                         const auto parentOutId=addB->outId();
-                        qDebug()<<"parentOutId:"<<parentOutId;
+                        qDebug()<<"parentOutId:"<<parentOutId.toHexString();
                         const auto address=addB->getAddress();
                         const auto sendFea=Feature::Sender(address);
                         const auto addUnlCon=Unlock_Condition::Address(address);
@@ -50,7 +71,6 @@ int main(int argc, char** argv)
 
                         InputSet inputSet;
                         StateOutputs stateOutputs;
-                        qDebug()<<"stateOutputs:";
                         auto consumedAmount=Wallet::instance()->
                                               consume(inputSet,stateOutputs,deposit,{Output::All_typ},{parentOutId});
 
@@ -66,6 +86,7 @@ int main(int argc, char** argv)
                         qDebug()<<"deposit:"<<deposit;
                         qDebug()<<"stateAmount:"<<stateAmount;
                         qDebug()<<"sent:"<<sent;
+
                         quint64 requiredAmount=deposit+stateAmount;
 
                         if(consumedAmount<requiredAmount)
@@ -73,13 +94,14 @@ int main(int argc, char** argv)
                             consumedAmount+=Wallet::instance()->
                                               consume(inputSet,stateOutputs,0,{Output::Basic_typ},{});
                         }
-                        qDebug()<<"Try again";
+
                         stateAmount=0;
                         for(const auto &v:std::as_const(stateOutputs))
                         {
                             stateAmount+=v.amount;
                             theOutputs.push_back(v.output);
                         }
+                        qDebug()<<"Try again";
                         qDebug()<<"consumedAmount:"<<consumedAmount;
                         qDebug()<<"deposit:"<<deposit;
                         qDebug()<<"stateAmount:"<<stateAmount;
