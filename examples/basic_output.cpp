@@ -1,9 +1,9 @@
 #include <QCoreApplication>
-#include"wallet/qwallet.hpp"
-#include"nodeConnection.hpp"
-#include"account.hpp"
-#include<QTimer>
-#include<QJsonDocument>
+#include "wallet/qwallet.hpp"
+#include "nodeConnection.hpp"
+#include "account.hpp"
+#include <QTimer>
+#include <QJsonDocument>
 
 using namespace qiota;
 
@@ -13,13 +13,12 @@ int main(int argc, char** argv)
 
     auto a=QCoreApplication(argc, argv);
 
-
     // It is mandatory to pass the node address and the seed to the application
     if(argc>1)
     {
-
         NodeConnection::instance()->setNodeAddr(QUrl(argv[1]));
         if(argc>2)NodeConnection::instance()->rest()->JWT=QString(argv[3]);
+        Account::instance()->setMnemonicMode(false);
         Account::instance()->setSeed(argv[2]);
 
         QObject::connect(Wallet::instance(),&Wallet::ready,&a,[=,&a](){
@@ -56,12 +55,12 @@ int main(int argc, char** argv)
                     }
 
                    const auto serialaddress=qencoding::qbech32::Iota::decode("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j").second;
-                    if(Wallet::instance()->addresses().contains(serialaddress))
+                    if(Wallet::instance()->addresses().find(serialaddress)!=Wallet::instance()->addresses().cend())
                     {
                         static auto sent{false};
-                        const auto addB=Wallet::instance()->addresses()[serialaddress];
+                        const auto addB=Wallet::instance()->addresses().at(serialaddress);
+                        if(addB)qDebug()<<"hello3:";
                         const auto parentOutId=addB->outId();
-                        qDebug()<<"parentOutId:"<<parentOutId.toHexString();
                         const auto address=addB->getAddress();
                         const auto sendFea=Feature::Sender(address);
                         const auto addUnlCon=Unlock_Condition::Address(address);

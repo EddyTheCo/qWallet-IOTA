@@ -5,7 +5,7 @@ foreach(example "basic_output" "nft_output"
 	qt_add_executable( ${example}  ${example}.cpp)
 	message(STATUS "Configuring example ${example}" )
 	# Link the used libraies in the executable
-        target_link_libraries(${example} PRIVATE qwallet )
+        target_link_libraries(${example} PRIVATE wallet )
 
         set_target_properties(${example} PROPERTIES
                 WIN32_EXECUTABLE ON
