@@ -35,8 +35,7 @@ void Wallet::sync(void)
     {
         for (quint32 i=0;i<addressRange;i++)
         {
-            auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}),
-                                                Wallet::instance());
+            auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}));
 
             checkAddress(addressBundle);
             connect(addressBundle,&AddressBox::amountChanged,this,[this](auto prevA,auto nextA){
@@ -66,10 +65,7 @@ void Wallet::checkAddress(AddressBox  *addressBundle)
                         get_outputs_unlock_condition_address("address/"+addressBech32);
             connect(resp,&ResponseMqtt::returned,addressBundle,[=](QJsonValue data)
                     {
-                        if(m_addresses.find(addressBundle->getAddress()->addr())!=m_addresses.cend())
-                            checkOutputs({Node_output(data)},addressBundle);
-                        else
-                            resp->deleteLater();
+                        checkOutputs({Node_output(data)},addressBundle);
                     });
         });
         connect(addressBundle,&QObject::destroyed,nodeOutputs,&QObject::deleteLater);
@@ -78,26 +74,46 @@ void Wallet::checkAddress(AddressBox  *addressBundle)
 }
 void Wallet::addAddress(AddressBox  * addressBundle)
 {
-    const auto outid=addressBundle->outId();
+    connect(addressBundle,&AddressBox::inputRemoved,this,[=](const auto ids){
+        for(const auto& id: ids)
+        {
+            m_outputs.erase(id);
+            usedOutIds.erase(id);
+        }
 
-    connect(addressBundle,&AddressBox::inputAdded,this,[=](c_array id){
-        auto newVec=(m_outputs.find(outid)!=m_outputs.end())?m_outputs[outid]:std::vector<std::pair<AddressBox*,c_array>>{};
-        newVec.push_back(std::make_pair(addressBundle,id));
-        m_outputs[id]=newVec;
     });
-    connect(addressBundle,&AddressBox::inputRemoved,this,[=](const c_array id){
-        m_outputs.erase(id);
-        usedOutIds.erase(id);
+    connect(addressBundle,&AddressBox::addrRemoved,this,[=](const auto addrs){
+        for(const auto& addr: addrs)
+        {
+            m_addresses.erase(addr);
+        }
+
     });
-    const auto serialAddress=addressBundle->getAddress()->addr();
-    m_addresses[serialAddress]=addressBundle;
-    emit addressesChanged(serialAddress);
     connect(addressBundle,&AddressBox::addrAdded,this,[=](AddressBox* addr){
         checkAddress(addr);
     });
-    connect(addressBundle,&AddressBox::addrRemoved,this,[=](c_array seriAddress){
-        m_addresses.erase(seriAddress);
+
+
+    const auto outid=addressBundle->outId();
+
+    connect(addressBundle,&AddressBox::inputAdded,this,[=](c_array id){
+        auto newVec=std::vector<std::pair<AddressBox*,c_array>>{};
+
+        if(m_outputs.find(outid)!=m_outputs.end()) newVec=m_outputs.at(outid);
+
+        if(outid.isEmpty()||newVec.size())
+        {
+            newVec.push_back(std::make_pair(addressBundle,id));
+            m_outputs[id]=newVec;
+        }
+
     });
+
+    const auto serialAddress=addressBundle->getAddress()->addr();
+    m_addresses[serialAddress]=addressBundle;
+    emit addressesChanged(serialAddress);
+
+
 }
 void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundle)
 {
@@ -160,32 +176,27 @@ quint64 Wallet::consume(InputSet& inputSet, StateOutputs &stateOutputs,
                         const std::set<Output::types>& onlyType,
                         const std::set<c_array> &outids)
 {
-
     quint64 amount=0;
-    auto ts = onlyType.find(Output::All_typ);
+    auto ts = (onlyType.find(Output::All_typ)!=onlyType.cend());
     for(const auto&v:outids)
     {
-        auto os = m_outputs.find(v);
-        auto ts2 = onlyType.find(m_outputs[v].back().first->inputs().value(v).output->type());
-        if( ts != onlyType.end()|| (os != m_outputs.end()&&
-                                     m_outputs[v].back().first&&
-                                     m_outputs[v].back().first->inputs().value(v).output&&
-                                     ts2 != onlyType.end()))
+        auto os = ((m_outputs.find(v)!=m_outputs.cend())&&
+                   (onlyType.find(m_outputs.at(v).back().first->inputs().value(v).output->type())!=onlyType.cend()));
+
+        if( ts || os)
             amount+=consumeInputs(v,inputSet,stateOutputs);
     }
 
-    for(const auto & [key,value]:m_outputs)
+    for(const auto & [v,value]:m_outputs)
     {
         if(amount>=amountNeedIt&&amountNeedIt)
             break;
 
-        auto os = m_outputs.find(key);
-        auto ts2 = onlyType.find(m_outputs[key].back().first->inputs().value(key).output->type());
-        if(ts != onlyType.end()||(os != m_outputs.end()&&
-                                     m_outputs[key].back().first&&
-                                     m_outputs[key].back().first->inputs().value(key).output&&
-                                     ts2 != onlyType.end()))
-            amount+=consumeInputs(key,inputSet,stateOutputs);
+
+        auto os = ((m_outputs.find(v)!=m_outputs.cend())&&
+                   (onlyType.find(m_outputs.at(v).back().first->inputs().value(v).output->type())!=onlyType.cend()));
+        if( ts || os)
+            amount+=consumeInputs(v,inputSet,stateOutputs);
     }
     return amount;
 }

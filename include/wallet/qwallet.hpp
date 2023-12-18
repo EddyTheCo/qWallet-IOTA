@@ -52,7 +52,7 @@ private:
     quint64 consumeInputs(const c_array &outId, InputSet &inputSet, StateOutputs &stateOutputs);
     quint64 consumeInbox(const QString & outId,const InBox & inBox, StateOutputs &stateOutputs)const;
     bool getInput(const QString& input,InputSet& inputSet);
-    void checkAddress(AddressBox *addressBundle);
+    void checkAddress(AddressBox *  addressBundle);
     quint64 m_amount;
     quint32 accountIndex, addressRange;
     InputMap m_outputs; //use better a map for ordering the inputs to consume them

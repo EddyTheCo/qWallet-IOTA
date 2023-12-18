@@ -43,7 +43,7 @@ int main(int argc, char** argv)
                             qDebug()<<"\t amount:"<<i.value().amount;
                         }
                     }
-                    qDebug()<<"inputs:";
+                    qDebug()<<"inputs:"<<Wallet::instance()->inputs().size();
                     for(const auto& [key,value]:Wallet::instance()->inputs())
                     {
                         qDebug()<<key.toHexString();
@@ -54,13 +54,13 @@ int main(int argc, char** argv)
                         }
                     }
 
-                   const auto serialaddress=qencoding::qbech32::Iota::decode("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j").second;
+                    const auto serialaddress=qencoding::qbech32::Iota::decode("rms1zrwzpry0aaplncyhh9snq2vplfgu0mk754rc9ha52c8qnp87xseuj8mus4j").second;
                     if(Wallet::instance()->addresses().find(serialaddress)!=Wallet::instance()->addresses().cend())
                     {
-                        static auto sent{false};
                         const auto addB=Wallet::instance()->addresses().at(serialaddress);
-                        if(addB)qDebug()<<"hello3:";
+
                         const auto parentOutId=addB->outId();
+                        qDebug()<<"parentOutId:"<<parentOutId.toHexString();
                         const auto address=addB->getAddress();
                         const auto sendFea=Feature::Sender(address);
                         const auto addUnlCon=Unlock_Condition::Address(address);
@@ -81,11 +81,6 @@ int main(int argc, char** argv)
                         {
                             stateAmount+=v.amount;
                         }
-                        qDebug()<<"consumedAmount:"<<consumedAmount;
-                        qDebug()<<"deposit:"<<deposit;
-                        qDebug()<<"stateAmount:"<<stateAmount;
-                        qDebug()<<"sent:"<<sent;
-
                         quint64 requiredAmount=deposit+stateAmount;
 
                         if(consumedAmount<requiredAmount)
@@ -100,18 +95,12 @@ int main(int argc, char** argv)
                             stateAmount+=v.amount;
                             theOutputs.push_back(v.output);
                         }
-                        qDebug()<<"Try again";
-                        qDebug()<<"consumedAmount:"<<consumedAmount;
-                        qDebug()<<"deposit:"<<deposit;
-                        qDebug()<<"stateAmount:"<<stateAmount;
-                        qDebug()<<"sent:"<<sent;
                         requiredAmount=deposit+stateAmount;
-                        if(consumedAmount>=requiredAmount&&!sent)
+                        if(consumedAmount>=requiredAmount)
                         {
-                            sent=true;
                             if(consumedAmount-requiredAmount!=0)
                             {
-                                    BaOut->amount_+=consumedAmount-requiredAmount;
+                                BaOut->amount_+=consumedAmount-requiredAmount;
                             }
                             //Because we are not adding `stateOutputs` to `theOutputs` we are burnig them, Foundry outputs can not be burn so easy.
                             auto payloadusedids=Wallet::instance()->createTransaction(inputSet,info,theOutputs);
@@ -128,7 +117,6 @@ int main(int argc, char** argv)
                             NodeConnection::instance()->rest()->send_block(block);
 
                         }
-
                     }
 
                 });
