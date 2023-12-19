@@ -16,7 +16,7 @@ version_from_git(
 	TIMESTAMP "%Y%m%d%H%M%S"
 	)
 
-project(IOTAWallet VERSION ${VERSION} DESCRIPTION "Wallet methods for Iota " LANGUAGES CXX)
+project(IotaWallet VERSION ${VERSION} DESCRIPTION "Wallet methods for Iota " LANGUAGES CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CXX_STANDARD 17)
