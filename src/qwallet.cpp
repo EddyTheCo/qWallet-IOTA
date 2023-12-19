@@ -101,11 +101,10 @@ void Wallet::addAddress(AddressBox  * addressBundle)
 
         if(m_outputs.find(outid)!=m_outputs.end()) newVec=m_outputs.at(outid);
 
-        if(outid.isEmpty()||newVec.size())
-        {
-            newVec.push_back(std::make_pair(addressBundle,id));
-            m_outputs[id]=newVec;
-        }
+
+        newVec.push_back(std::make_pair(addressBundle,id));
+        m_outputs[id]=newVec;
+
 
     });
 
