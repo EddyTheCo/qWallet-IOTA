@@ -37,7 +37,9 @@ void Wallet::reset(void)
         m_addresses.clear();
         m_outputs.clear();
         usedOutIds.clear();
+#if defined(USE_QML)
         m_amountJson->setValue(0);
+#endif
         m_amount=0;
         m_instance->sync();
     }
