@@ -93,6 +93,7 @@ void Wallet::addAddress(AddressBox  * addressBundle)
         {
             m_outputs.erase(id);
             usedOutIds.erase(id);
+            emit inputRemoved(id);
         }
 
     });
@@ -114,12 +115,9 @@ void Wallet::addAddress(AddressBox  * addressBundle)
         auto newVec=std::vector<std::pair<AddressBox*,c_array>>{};
 
         if(m_outputs.find(outid)!=m_outputs.end()) newVec=m_outputs.at(outid);
-
-
         newVec.push_back(std::make_pair(addressBundle,id));
         m_outputs[id]=newVec;
-
-
+        emit inputAdded(id);
     });
 
     const auto serialAddress=addressBundle->getAddress()->addr();

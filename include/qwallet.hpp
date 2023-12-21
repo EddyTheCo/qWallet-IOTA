@@ -60,6 +60,8 @@ public:
     void checkOutputs(std::vector<Node_output>  outs, AddressBox *addressBundle);
 signals:
     void addressesChanged(c_array);
+    void inputAdded(c_array);
+    void inputRemoved(c_array);
     void amountChanged();
     void ready();
     void synced();
