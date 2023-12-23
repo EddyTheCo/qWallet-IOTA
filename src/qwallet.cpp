@@ -53,7 +53,7 @@ void Wallet::sync(void)
         {
             for (quint32 i=0;i<addressRange;i++)
             {
-                auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}),info->bech32Hrp);
+                auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}),info->bech32Hrp,this);
 
                 checkAddress(addressBundle);
                 connect(addressBundle,&AddressBox::amountChanged,this,[this](auto prevA,auto nextA){
