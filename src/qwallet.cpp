@@ -27,7 +27,9 @@ Wallet* Wallet::instance()
     if (!m_instance)
     {
         m_instance=new Wallet();
+#if defined(USE_QML)
         QJSEngine::setObjectOwnership(m_instance,QJSEngine::CppOwnership);
+#endif
     }
     return m_instance;
 }
