@@ -7,7 +7,8 @@ namespace qiota{
 using namespace qblocks;
 
 Wallet* Wallet::m_instance=nullptr;
-
+InputMap Wallet::m_outputs=std::map<c_array,std::vector<std::pair<AddressBox const *,c_array>>>{};
+std::map<c_array,AddressBox const *> Wallet::m_addresses=std::map<c_array,AddressBox const *>{};
 
 Wallet::Wallet(QObject *parent):QObject(parent),m_amount(0),accountIndex(0),addressRange(1)
 #if defined(USE_QML)
@@ -23,17 +24,17 @@ Wallet::Wallet(QObject *parent):QObject(parent),m_amount(0),accountIndex(0),addr
 }
 Wallet* Wallet::instance()
 {
-    if (!m_instance) m_instance=new Wallet();
+    if (!m_instance)
+    {
+        m_instance=new Wallet();
+        QJSEngine::setObjectOwnership(m_instance,QJSEngine::CppOwnership);
+    }
     return m_instance;
 }
 void Wallet::reset(void)
 {
     if(NodeConnection::instance()->state()==NodeConnection::Connected)
     {
-        for(const auto&[k,v]:m_addresses)
-        {
-            v->deleteLater();
-        }
         m_addresses.clear();
         m_outputs.clear();
         usedOutIds.clear();
@@ -87,6 +88,7 @@ void Wallet::checkAddress(AddressBox  *addressBundle)
     });
     connect(addressBundle,&QObject::destroyed,nodeOutputs,&QObject::deleteLater);
 
+
 }
 void Wallet::addAddress(AddressBox  * addressBundle)
 {
@@ -109,23 +111,26 @@ void Wallet::addAddress(AddressBox  * addressBundle)
     connect(addressBundle,&AddressBox::addrAdded,this,[=](AddressBox* addr){
         checkAddress(addr);
     });
-
+    
 
     const auto outid=addressBundle->outId();
 
     connect(addressBundle,&AddressBox::inputAdded,this,[=](c_array id){
-        auto newVec=std::vector<std::pair<AddressBox*,c_array>>{};
+        auto newVec=std::vector<std::pair<AddressBox const *,c_array>>{};
 
         if(m_outputs.find(outid)!=m_outputs.end()) newVec=m_outputs.at(outid);
         newVec.push_back(std::make_pair(addressBundle,id));
-        m_outputs[id]=newVec;
+
+        const auto bb=m_outputs.try_emplace(id,newVec);
+
         emit inputAdded(id);
     });
 
     const auto serialAddress=addressBundle->getAddress()->addr();
-    m_addresses[serialAddress]=addressBundle;
-    emit addressesChanged(serialAddress);
+    m_addresses.insert(std::make_pair(serialAddress,addressBundle));
 
+    emit addressesChanged(serialAddress);
+    
 
 }
 void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundle)
@@ -147,10 +152,10 @@ quint64 Wallet::consumeInputs(const c_array & outId,
 {
     quint64 amount=0;
     if((m_outputs.find(outId)!=m_outputs.cend())&&
-        (usedOutIds.find(m_outputs[outId].front().second)==usedOutIds.cend()))
+        (usedOutIds.find(m_outputs.at(outId).front().second)==usedOutIds.cend()))
     {
-        std::vector<std::pair<AddressBox*,std::set<c_array>>>::iterator it;
-        for(const auto& v:m_outputs[outId] )
+        std::vector<std::pair<AddressBox const *,std::set<c_array>>>::iterator it;
+        for(const auto& v:m_outputs.at(outId))
         {
             bool addrExist=false;
             for(it=inputSet.begin(); it != inputSet.end(); it++)
@@ -204,7 +209,7 @@ quint64 Wallet::consume(InputSet& inputSet, StateOutputs &stateOutputs,
     {
         if(amount>=amountNeedIt&&amountNeedIt)
             break;
-
+        
 
         auto os = ((m_outputs.find(v)!=m_outputs.cend())&&
                    (onlyType.find(m_outputs.at(v).back().first->inputs().value(v).output->type())!=onlyType.cend()));
@@ -218,7 +223,7 @@ pvector<const Unlock> Wallet::createUnlocks(const InputSet& inputSet,const qbloc
 {
     pvector<const Unlock> theUnlocks;
     quint16 ref=0;
-    std::pair<AddressBox*,std::set<c_array>> prev;
+    std::pair<AddressBox const *,std::set<c_array>> prev;
     for(const auto& v:inputSet)
     {
         const auto outIds=v.second;
@@ -266,9 +271,9 @@ Wallet::createTransaction(const InputSet& inputSet,Node_info* info, const pvecto
     return std::make_pair(Payload::Transaction(essence,unlocks),usedIds);
 }
 
-std::vector<AddressBox*> Wallet::getAddresses()
+std::vector<AddressBox const*> Wallet::getAddresses()
 {
-    std::vector<AddressBox*> vec;
+    std::vector<AddressBox const *> vec;
     for(const auto& [key,value]:m_addresses) {
         vec.push_back(value);
     }
