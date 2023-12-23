@@ -22,16 +22,16 @@ namespace qiota{
 using namespace qblocks;
 
 
-using InputSet = std::vector<std::pair<AddressBox*,std::set<c_array>>>;
+using InputSet = std::vector<std::pair<AddressBox const *,std::set<c_array>>>;
 using StateOutputs=QHash<QString,InBox>;
-using InputMap=std::map<c_array,std::vector<std::pair<AddressBox*,c_array>>>;
+using InputMap=std::map<c_array,std::vector<std::pair<AddressBox const *,c_array>>>;
 
 class QWALLET_EXPORT Wallet: public QObject
 {
     Q_OBJECT
 #if defined(USE_QML)
     Q_PROPERTY(Qml64*  amount READ amountJson CONSTANT)
-    Q_PROPERTY(std::vector<AddressBox*>  addresses READ getAddresses NOTIFY addressesChanged)
+    Q_PROPERTY(std::vector<AddressBox const *>  addresses READ getAddresses NOTIFY addressesChanged)
     QML_ELEMENT
     QML_SINGLETON
 #endif
@@ -48,9 +48,12 @@ public:
     }
     Qml64* amountJson()const{return m_amountJson;}
 #endif
-    const auto & addresses()const{return m_addresses;}
-    const auto & inputs()const{return m_outputs;}
-    std::vector<AddressBox*> getAddresses();
+    const auto &  addresses()const{return m_addresses;}
+
+    auto getInput(c_array id)const{
+        return m_outputs.at(id).back().first->inputs().value(id);
+    }
+    std::vector<AddressBox const *> getAddresses();
     quint64 consume(InputSet& inputSet, StateOutputs &stateOutputs,
                     const quint64& amountNeedIt=0,
                     const std::set<Output::types>& onlyType={Output::All_typ},
@@ -79,9 +82,9 @@ private:
     Qml64* m_amountJson;
 #endif
     quint32 accountIndex, addressRange;
-    InputMap m_outputs; //use better a map for ordering the inputs to consume them
+    static InputMap m_outputs;
     std::set<QString> usedOutIds;
-    std::map<c_array,AddressBox*> m_addresses;
+    static std::map<c_array,AddressBox const *> m_addresses;
     static Wallet * m_instance;
 
 
