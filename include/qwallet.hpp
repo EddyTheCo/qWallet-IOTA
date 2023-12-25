@@ -23,7 +23,7 @@ using namespace qblocks;
 
 
 using InputSet = std::vector<std::pair<AddressBox const *,std::set<c_array>>>;
-using StateOutputs=QHash<QString,InBox>;
+using StateOutputs=QHash<c_array,InBox>;
 using InputMap=std::map<c_array,std::vector<std::pair<AddressBox const *,c_array>>>;
 
 class QWALLET_EXPORT Wallet: public QObject
@@ -66,15 +66,15 @@ signals:
     void inputAdded(c_array);
     void inputRemoved(c_array);
     void amountChanged();
-    void ready();
+    void resetted();
     void synced();
 private:
     void sync(void);
     void reset(void);
     void addAddress(AddressBox*addressBundle);
     pvector<const Unlock> createUnlocks(const InputSet& inputSet, const c_array &essenceHash)const;
-    quint64 consumeInputs(const c_array &outId, InputSet &inputSet, StateOutputs &stateOutputs);
-    quint64 consumeInbox(const QString & outId,const InBox & inBox, StateOutputs &stateOutputs)const;
+    quint64 consumeInputs(const c_array outId, InputSet &inputSet, StateOutputs &stateOutputs);
+    quint64 consumeInbox(const c_array outId, const InBox & inBox, StateOutputs &stateOutputs)const;
     bool getInput(const QString& input,InputSet& inputSet);
     void checkAddress(AddressBox *  addressBundle);
     quint64 m_amount;
