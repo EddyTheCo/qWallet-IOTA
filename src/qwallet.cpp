@@ -37,6 +37,7 @@ void Wallet::reset(void)
 {
     if(NodeConnection::instance()->state()==NodeConnection::Connected)
     {
+        emit resetted();
         m_addresses.clear();
         m_outputs.clear();
         usedOutIds.clear();
@@ -45,6 +46,7 @@ void Wallet::reset(void)
 #endif
         m_amount=0;
         m_instance->sync();
+
     }
 }
 void Wallet::sync(void)
@@ -139,7 +141,7 @@ void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundl
 {
     addressBundle->getOutputs(outs);
 }
-quint64 Wallet::consumeInbox(const QString & outId,const InBox & inBox,
+quint64 Wallet::consumeInbox(const c_array  outId,const InBox & inBox,
                              StateOutputs &stateOutputs)const
 {
     if(inBox.output->type()!=Output::Basic_typ)
@@ -149,8 +151,8 @@ quint64 Wallet::consumeInbox(const QString & outId,const InBox & inBox,
     return inBox.amount;
 }
 
-quint64 Wallet::consumeInputs(const c_array & outId,
-                              InputSet& inputSet,StateOutputs& stateOutputs)
+quint64 Wallet::consumeInputs(const c_array outId,
+                              InputSet& inputSet, StateOutputs& stateOutputs)
 {
     quint64 amount=0;
     if((m_outputs.find(outId)!=m_outputs.cend())&&
@@ -200,23 +202,29 @@ quint64 Wallet::consume(InputSet& inputSet, StateOutputs &stateOutputs,
     auto ts = (onlyType.find(Output::All_typ)!=onlyType.cend());
     for(const auto&v:outids)
     {
+
         auto os = ((m_outputs.find(v)!=m_outputs.cend())&&
                    (onlyType.find(m_outputs.at(v).back().first->inputs().value(v).output->type())!=onlyType.cend()));
 
-        if( ts || os)
+        if (ts || os)
+        {
             amount+=consumeInputs(v,inputSet,stateOutputs);
+        }
     }
 
-    for(const auto & [v,value]:m_outputs)
+    if(!(amountNeedIt==0&&outids.size()))
     {
-        if(amount>=amountNeedIt&&amountNeedIt)
-            break;
-        
-
-        auto os = ((m_outputs.find(v)!=m_outputs.cend())&&
-                   (onlyType.find(m_outputs.at(v).back().first->inputs().value(v).output->type())!=onlyType.cend()));
-        if( ts || os)
-            amount+=consumeInputs(v,inputSet,stateOutputs);
+        for(const auto & [v,value]:m_outputs)
+        {
+            if(amount>=amountNeedIt&&amountNeedIt)
+                break;
+            auto os = ((m_outputs.find(v)!=m_outputs.cend())&&
+                       (onlyType.find(m_outputs.at(v).back().first->inputs().value(v).output->type())!=onlyType.cend()));
+            if( ts || os)
+            {
+                amount+=consumeInputs(v,inputSet,stateOutputs);
+            }
+        }
     }
     return amount;
 }
