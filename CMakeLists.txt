@@ -28,8 +28,8 @@ include(GNUInstallDirs)
 FetchContent_Declare(
     IotaAddressWallet
     GIT_REPOSITORY https://github.com/EddyTheCo/QAddrBundle.git
-    GIT_TAG develop
-    FIND_PACKAGE_ARGS 0.4 CONFIG
+    GIT_TAG v0.3.0
+    FIND_PACKAGE_ARGS 0.3 CONFIG
 )
 FetchContent_MakeAvailable(IotaAddressWallet)
 
