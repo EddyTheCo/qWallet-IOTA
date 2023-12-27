@@ -60,7 +60,7 @@ if (Qt6_FOUND)
 
     target_link_libraries(wallet PUBLIC Qt6::Gui Qt6::Quick)
     target_compile_definitions(wallet PRIVATE USE_QML)
-    target_link_libraries(addrBundle PUBLIC
+    target_link_libraries(wallet PUBLIC
         $<$<STREQUAL:$<TARGET_PROPERTY:IotaAddressWallet::addrBundle,TYPE>,STATIC_LIBRARY>:IotaAddressWallet::addrBundleplugin>
     )
     install(TARGETS ${out_targets_var}
