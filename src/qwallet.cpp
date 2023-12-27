@@ -89,6 +89,12 @@ void Wallet::checkAddress(AddressBox  *addressBundle)
                 {
                     checkOutputs({Node_output(data)},addressBundle);
                 });
+        auto resp2=NodeConnection::instance()->mqtt()->
+                    get_outputs_unlock_condition_address("expiration/"+addressBech32);
+        connect(resp2,&ResponseMqtt::returned,addressBundle,[=](QJsonValue data)
+                {
+                    checkOutputs({Node_output(data)},addressBundle);
+                });
     });
     connect(addressBundle,&QObject::destroyed,nodeOutputs,&QObject::deleteLater);
 
