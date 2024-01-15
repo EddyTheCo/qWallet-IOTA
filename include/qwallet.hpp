@@ -49,6 +49,7 @@ public:
     Qml64* amountJson()const{return m_amountJson;}
 #endif
     const auto &  addresses()const{return m_addresses;}
+    std::vector<std::pair<c_array, std::shared_ptr<Output> > > getNFTs()const;
 
     auto getInput(c_array id)const{
         return m_outputs.at(id).back().first->inputs().value(id);

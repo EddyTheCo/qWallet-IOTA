@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
 
 option(USE_QML "Create QML types and modules" OFF)
 include(${CMAKE_CURRENT_BINARY_DIR}/local_conf.cmake OPTIONAL)
