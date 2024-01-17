@@ -90,7 +90,7 @@ void Wallet::checkAddress(AddressBox  *addressBundle)
                     checkOutputs({Node_output(data)},addressBundle);
                 });
         auto resp2=NodeConnection::instance()->mqtt()->
-                    get_outputs_unlock_condition_address("expiration/"+addressBech32);
+                     get_outputs_unlock_condition_address("expiration/"+addressBech32);
         connect(resp2,&ResponseMqtt::returned,addressBundle,[=](QJsonValue data)
                 {
                     checkOutputs({Node_output(data)},addressBundle);
@@ -122,7 +122,6 @@ void Wallet::addAddress(AddressBox  * addressBundle)
         checkAddress(addr);
     });
     
-
     const auto outid=addressBundle->outId();
 
     connect(addressBundle,&AddressBox::inputAdded,this,[=](c_array id){
@@ -156,7 +155,19 @@ quint64 Wallet::consumeInbox(const c_array  outId,const InBox & inBox,
     }
     return inBox.amount;
 }
-
+std::vector<std::pair<c_array,std::shared_ptr<Output>>> Wallet::getNFTs()const
+{
+    std::vector<std::pair<c_array,std::shared_ptr<Output>>> var;
+    for(const auto & [v,value]:m_outputs)
+    {
+        const auto output=value.back().first->inputs().value(v).output;
+        if(output->type()==Output::NFT_typ)
+        {
+            var.push_back(std::make_pair(v,output));
+        }
+    }
+    return var;
+}
 quint64 Wallet::consumeInputs(const c_array outId,
                               InputSet& inputSet, StateOutputs& stateOutputs)
 {

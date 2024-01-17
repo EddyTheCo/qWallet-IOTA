@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
 
 option(USE_QML "Create QML types and modules" OFF)
 include(${CMAKE_CURRENT_BINARY_DIR}/local_conf.cmake OPTIONAL)
@@ -28,7 +28,7 @@ include(GNUInstallDirs)
 FetchContent_Declare(
     IotaAddressWallet
     GIT_REPOSITORY https://github.com/EddyTheCo/QAddrBundle.git
-    GIT_TAG v0.3.0
+    GIT_TAG v0.3.1
     FIND_PACKAGE_ARGS 0.3 CONFIG
 )
 FetchContent_MakeAvailable(IotaAddressWallet)
