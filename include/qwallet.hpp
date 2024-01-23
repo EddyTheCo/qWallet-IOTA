@@ -62,6 +62,9 @@ public:
     std::pair<std::shared_ptr<const Payload>,std::set<QString>> createTransaction
         (const InputSet &inputSet, Node_info* info, const pvector<const Output> &outputs);
     void checkOutputs(std::vector<Node_output>  outs, AddressBox *addressBundle);
+    void setAddressRange(quint32 range){if(addressRange!=range){addressRange=range;reset();}
+    }
+    void setAccountIndex(quint32 account){if(accountIndex!=account){accountIndex=account; reset();}}
 signals:
     void addressesChanged(c_array);
     void inputAdded(c_array);
@@ -73,6 +76,7 @@ private:
     void sync(void);
     void reset(void);
     void addAddress(AddressBox*addressBundle);
+
     pvector<const Unlock> createUnlocks(const InputSet& inputSet, const c_array &essenceHash)const;
     quint64 consumeInputs(const c_array outId, InputSet &inputSet, StateOutputs &stateOutputs);
     quint64 consumeInbox(const c_array outId, const InBox & inBox, StateOutputs &stateOutputs)const;
@@ -82,11 +86,13 @@ private:
 #if defined(USE_QML)
     Qml64* m_amountJson;
 #endif
-    quint32 accountIndex, addressRange;
+    static quint32 accountIndex, addressRange;
     static InputMap m_outputs;
     std::set<QString> usedOutIds;
     static std::map<c_array,AddressBox const *> m_addresses;
+    static std::vector<AddressBox *> m_rootAddresses;
     static Wallet * m_instance;
+
 
 
 };

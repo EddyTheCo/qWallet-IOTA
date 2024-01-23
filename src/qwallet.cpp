@@ -7,10 +7,13 @@ namespace qiota{
 using namespace qblocks;
 
 Wallet* Wallet::m_instance=nullptr;
-InputMap Wallet::m_outputs=std::map<c_array,std::vector<std::pair<AddressBox const *,c_array>>>{};
-std::map<c_array,AddressBox const *> Wallet::m_addresses=std::map<c_array,AddressBox const *>{};
+InputMap Wallet::m_outputs={};
+std::map<c_array,AddressBox const *> Wallet::m_addresses={};
+quint32 Wallet::accountIndex=0;
+quint32 Wallet::addressRange=1;
+std::vector<AddressBox *> Wallet::m_rootAddresses={};
 
-Wallet::Wallet(QObject *parent):QObject(parent),m_amount(0),accountIndex(0),addressRange(1)
+Wallet::Wallet(QObject *parent):QObject(parent),m_amount(0)
 #if defined(USE_QML)
     ,m_amountJson(new Qml64(m_amount,this))
 #endif
@@ -30,6 +33,7 @@ Wallet* Wallet::instance()
 #if defined(USE_QML)
         QJSEngine::setObjectOwnership(m_instance,QJSEngine::CppOwnership);
 #endif
+
     }
     return m_instance;
 }
@@ -37,16 +41,22 @@ void Wallet::reset(void)
 {
     if(NodeConnection::instance()->state()==NodeConnection::Connected)
     {
-        emit resetted();
+
+        for(auto v:m_rootAddresses)
+        {
+            v->deleteLater();
+        }
+        m_rootAddresses.clear();
         m_addresses.clear();
         m_outputs.clear();
         usedOutIds.clear();
+
 #if defined(USE_QML)
         m_amountJson->setValue(0);
 #endif
         m_amount=0;
+        emit resetted();
         m_instance->sync();
-
     }
 }
 void Wallet::sync(void)
@@ -58,7 +68,7 @@ void Wallet::sync(void)
             for (quint32 i=0;i<addressRange;i++)
             {
                 auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}),info->bech32Hrp,this);
-
+                m_rootAddresses.push_back(addressBundle);
                 checkAddress(addressBundle);
                 connect(addressBundle,&AddressBox::amountChanged,this,[this](auto prevA,auto nextA){
                     m_amount=m_amount-prevA + nextA;
@@ -287,7 +297,10 @@ Wallet::createTransaction(const InputSet& inputSet,Node_info* info, const pvecto
             const auto inBox=v.first->inputs().value(outId);
             inputs.push_back(inBox.input);
             InputsHash+=inBox.inputHash;
-            if(inBox.retOutput)theOutputs.push_back(inBox.retOutput);
+            if(inBox.retOutput)
+            {
+                theOutputs.push_back(inBox.retOutput);
+            }
         }
 
     }
