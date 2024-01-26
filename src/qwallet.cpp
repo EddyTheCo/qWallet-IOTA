@@ -7,15 +7,27 @@ namespace qiota{
 using namespace qblocks;
 
 Wallet* Wallet::m_instance=nullptr;
-InputMap Wallet::m_outputs={};
-std::map<c_array,AddressBox const *> Wallet::m_addresses={};
-quint32 Wallet::accountIndex=0;
-quint32 Wallet::addressRange=1;
-std::vector<AddressBox *> Wallet::m_rootAddresses={};
 
-Wallet::Wallet(QObject *parent):QObject(parent),m_amount(0)
 #if defined(USE_QML)
-    ,m_amountJson(new Qml64(m_amount,this))
+Wallet *Wallet::create(QQmlEngine *qmlEngine, QJSEngine *jsEngine)
+{
+    return instance();
+}
+Qml64* Wallet::amountJson()const{return m_amountJson;}
+#endif
+
+quint64 Wallet::amount(void)const{return m_amount;};
+
+const std::map<c_array,AddressBox const *> &  Wallet::addresses()const{return m_addresses;}
+size_t Wallet::nRootAddresses()const{return m_rootAddresses.size();}
+InBox Wallet::getInput(c_array id)const{
+    return m_outputs.at(id).back().first->inputs().value(id);
+}
+void Wallet::setAddressRange(quint32 range){if(m_addressRange!=range){m_addressRange=range;reset();}}
+void Wallet::setAccountIndex(quint32 account){if(m_accountIndex!=account){m_accountIndex=account; reset();}}
+Wallet::Wallet(QObject *parent):QObject(parent),m_amount(0),m_accountIndex(0),m_addressRange(1)
+#if defined(USE_QML)
+    ,m_amountJson(new Qml64(0,this))
 #endif
 {
 #if defined(USE_QML)
@@ -33,60 +45,64 @@ Wallet* Wallet::instance()
 #if defined(USE_QML)
         QJSEngine::setObjectOwnership(m_instance,QJSEngine::CppOwnership);
 #endif
-
     }
     return m_instance;
 }
 void Wallet::reset(void)
 {
+
     if(NodeConnection::instance()->state()==NodeConnection::Connected)
     {
 
-        for(auto v:m_rootAddresses)
-        {
-            v->deleteLater();
-        }
-        m_rootAddresses.clear();
-        m_addresses.clear();
-        m_outputs.clear();
-        usedOutIds.clear();
+        auto info=NodeConnection::instance()->rest()->get_api_core_v2_info();
+        connect(info,&Node_info::finished,this,[=]( ){
+            for(auto v:m_rootAddresses)
+            {
+                v->deleteLater();
+            }
+            m_rootAddresses.clear();
+            m_addresses.clear();
+            m_outputs.clear();
+            usedOutIds.clear();
 
 #if defined(USE_QML)
-        m_amountJson->setValue(0);
+            m_amountJson->setValue(0);
 #endif
-        m_amount=0;
-        emit resetted();
-        m_instance->sync();
-    }
-}
-void Wallet::sync(void)
-{
-    auto info=NodeConnection::instance()->rest()->get_api_core_v2_info();
-    connect(info,&Node_info::finished,this,[=]( ){
-        for(quint32 pub=0;pub<1;pub++)
-        {
-            for (quint32 i=0;i<addressRange;i++)
-            {
-                auto addressBundle = new AddressBox(Account::instance()->getKeys({accountIndex,pub,i}),info->bech32Hrp,this);
-                m_rootAddresses.push_back(addressBundle);
-                checkAddress(addressBundle);
-                connect(addressBundle,&AddressBox::amountChanged,this,[this](auto prevA,auto nextA){
-                    m_amount=m_amount-prevA + nextA;
-                    emit amountChanged();
-                });
-            }
-        }
-        emit synced();
-        info->deleteLater();
-    });
+            m_amount=0;
+            sync(info->bech32Hrp);
+            info->deleteLater();
+        });
 
+    }
+
+}
+void Wallet::sync(QString hrp)
+{
+
+    for(quint32 pub=0;pub<1;pub++)
+    {
+        for (quint32 i=0;i<m_addressRange;i++)
+        {
+
+            auto addressBundle = new AddressBox(Account::instance()->getKeys({m_accountIndex,pub,i}),hrp,this);
+
+            m_rootAddresses.push_back(addressBundle);
+            checkAddress(addressBundle);
+            connect(addressBundle,&AddressBox::amountChanged,this,[this](auto prevA,auto nextA){
+                m_amount=m_amount-prevA + nextA;
+                emit amountChanged();
+            });
+
+        }
+    }
+    emit synced();
 }
 
 void Wallet::checkAddress(AddressBox  *addressBundle)
 {
     addAddress(addressBundle);
-    const auto addressBech32=addressBundle->getAddressBech32();
 
+    const auto addressBech32=addressBundle->getAddressBech32();
     auto nodeOutputs=NodeConnection::instance()->rest()->
                        get_outputs<Output::All_typ>("unlockableByAddress="+addressBech32);
 
@@ -105,6 +121,7 @@ void Wallet::checkAddress(AddressBox  *addressBundle)
                 {
                     checkOutputs({Node_output(data)},addressBundle);
                 });
+
     });
     connect(addressBundle,&QObject::destroyed,nodeOutputs,&QObject::deleteLater);
 
@@ -131,7 +148,7 @@ void Wallet::addAddress(AddressBox  * addressBundle)
     connect(addressBundle,&AddressBox::addrAdded,this,[=](AddressBox* addr){
         checkAddress(addr);
     });
-    
+
     const auto outid=addressBundle->outId();
 
     connect(addressBundle,&AddressBox::inputAdded,this,[=](c_array id){
@@ -149,7 +166,7 @@ void Wallet::addAddress(AddressBox  * addressBundle)
     m_addresses.insert(std::make_pair(serialAddress,addressBundle));
 
     emit addressesChanged(serialAddress);
-    
+
 
 }
 void Wallet::checkOutputs(std::vector<Node_output> outs,AddressBox* addressBundle)
