@@ -40,20 +40,16 @@ class QWALLET_EXPORT Wallet: public QObject
 public:
     static Wallet* instance();
 
-    auto amount(void)const{return m_amount;};
+    quint64 amount(void)const;
 #if defined(USE_QML)
-    static Wallet *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine)
-    {
-        return instance();
-    }
-    Qml64* amountJson()const{return m_amountJson;}
+    static Wallet *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
+    Qml64* amountJson()const;
 #endif
-    const auto &  addresses()const{return m_addresses;}
+    const std::map<c_array,AddressBox const *> &  addresses()const;
+    size_t nRootAddresses()const;
     std::vector<std::pair<c_array, std::shared_ptr<Output> > > getNFTs()const;
 
-    auto getInput(c_array id)const{
-        return m_outputs.at(id).back().first->inputs().value(id);
-    }
+    InBox getInput(c_array id)const;
     std::vector<AddressBox const *> getAddresses();
     quint64 consume(InputSet& inputSet, StateOutputs &stateOutputs,
                     const quint64& amountNeedIt=0,
@@ -62,17 +58,19 @@ public:
     std::pair<std::shared_ptr<const Payload>,std::set<QString>> createTransaction
         (const InputSet &inputSet, Node_info* info, const pvector<const Output> &outputs);
     void checkOutputs(std::vector<Node_output>  outs, AddressBox *addressBundle);
+    void setAddressRange(quint32 range);
+    void setAccountIndex(quint32 account);
 signals:
     void addressesChanged(c_array);
     void inputAdded(c_array);
     void inputRemoved(c_array);
     void amountChanged();
-    void resetted();
     void synced();
 private:
-    void sync(void);
+    void sync(QString hrp);
     void reset(void);
     void addAddress(AddressBox*addressBundle);
+
     pvector<const Unlock> createUnlocks(const InputSet& inputSet, const c_array &essenceHash)const;
     quint64 consumeInputs(const c_array outId, InputSet &inputSet, StateOutputs &stateOutputs);
     quint64 consumeInbox(const c_array outId, const InBox & inBox, StateOutputs &stateOutputs)const;
@@ -82,12 +80,12 @@ private:
 #if defined(USE_QML)
     Qml64* m_amountJson;
 #endif
-    quint32 accountIndex, addressRange;
-    static InputMap m_outputs;
+    quint32 m_accountIndex, m_addressRange;
+    InputMap m_outputs;
     std::set<QString> usedOutIds;
-    static std::map<c_array,AddressBox const *> m_addresses;
+    std::map<c_array,AddressBox const *> m_addresses;
+    std::vector<AddressBox *> m_rootAddresses;
     static Wallet * m_instance;
-
 
 };
 
