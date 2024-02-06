@@ -12,16 +12,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest,macos-latest,windows-latest]
-        sharedLib: [true,false]
-        useThread: [true,false]
 
-    uses: EddyTheCo/Common/.github/workflows/build-test-install.yml@v0.1.1
+    uses: EddyTheCo/Common/.github/workflows/build-test-install.yml@v0.1.2
     permissions:
       contents: write
     with:
       os: ${{ matrix.os }}
-      sharedLib: ${{ matrix.sharedLib }}
-      useThread: ${{ matrix.useThread }}
       qtVersion: '6.6.0'
       test: false
       qtModules: 'qtwebsockets'
@@ -36,9 +32,9 @@ jobs:
 
     steps:
           
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
     
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
            path: artifacts
       - name: Display structure of downloaded files
