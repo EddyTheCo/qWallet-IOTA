@@ -42,10 +42,10 @@ endif()
 
 if (Qt6_FOUND)
 	qt_standard_project_setup()
-	add_library(wallet src/qwallet.cpp include/qwallet.hpp)
-	set_target_properties(wallet PROPERTIES VERSION ${VERSION} SOVERSION ${VERSION_MAJOR})
+	add_library(qwallet src/qwallet.cpp include/qwallet.hpp)
+	set_target_properties(qwallet PROPERTIES VERSION ${VERSION} SOVERSION ${VERSION_MAJOR})
 	if(USE_QML)
-		qt6_add_qml_module(wallet
+		qt6_add_qml_module(qwallet
 			URI  Esterv.Iota.Wallet
 			VERSION 1.0
 			RESOURCE_PREFIX
@@ -57,11 +57,11 @@ if (Qt6_FOUND)
 			)
 
 
-		add_library(${PROJECT_NAME}::walletplugin ALIAS walletplugin)
+		add_library(${PROJECT_NAME}::qwalletplugin ALIAS qwalletplugin)
 
-		target_link_libraries(wallet PUBLIC Qt6::Gui Qt6::Quick)
-		target_compile_definitions(wallet PRIVATE USE_QML)
-		target_link_libraries(wallet PUBLIC
+		target_link_libraries(qwallet PUBLIC Qt6::Gui Qt6::Quick)
+		target_compile_definitions(qwallet PRIVATE USE_QML)
+		target_link_libraries(qwallet PUBLIC
 			$<$<STREQUAL:$<TARGET_PROPERTY:IotaAddressWallet::addrBundle,TYPE>,STATIC_LIBRARY>:IotaAddressWallet::addrBundleplugin>
 			)
 		install(TARGETS ${out_targets_var}
@@ -73,21 +73,21 @@ if (Qt6_FOUND)
 			DESTINATION ${CMAKE_INSTALL_LIBDIR}/Esterv/Iota
 			COMPONENT wallet
 			)
-		install(TARGETS walletplugin
+		install(TARGETS qwalletplugin
 			EXPORT ${PROJECT_NAME}-config
 			DESTINATION ${CMAKE_INSTALL_LIBDIR}/Esterv/Iota/Wallet
 			COMPONENT wallet
 			)
 	endif()
-	add_library(${PROJECT_NAME}::wallet ALIAS wallet)
-	target_compile_definitions(wallet PRIVATE WINDOWS_QWALLET)
-	target_link_libraries(wallet PUBLIC  Qt6::Core)
-	target_link_libraries(wallet PUBLIC  IotaAddressWallet::addrBundle)
+	add_library(${PROJECT_NAME}::qwallet ALIAS qwallet)
+	target_compile_definitions(qwallet PRIVATE WINDOWS_QWALLET)
+	target_link_libraries(qwallet PUBLIC  Qt6::Core)
+	target_link_libraries(qwallet PUBLIC  IotaAddressWallet::addrBundle)
 
-	target_include_directories(wallet PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	target_include_directories(qwallet PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/Esterv/>")
 
-	install(TARGETS wallet
+	install(TARGETS qwallet
 		EXPORT ${PROJECT_NAME}-config
 		DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		COMPONENT wallet

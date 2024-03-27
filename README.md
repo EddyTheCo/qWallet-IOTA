@@ -39,11 +39,11 @@ FetchContent_Declare(
 	)
 FetchContent_MakeAvailable(IotaWallet)
 
-target_link_libraries(<target> <PRIVATE|PUBLIC|INTERFACE> IotaWallet::wallet)
+target_link_libraries(<target> <PRIVATE|PUBLIC|INTERFACE> IotaWallet::qwallet)
 ```
 If want to use the QML module also add
 ```
-$<$<STREQUAL:$<TARGET_PROPERTY:IotaWallet::wallet,TYPE>,STATIC_LIBRARY>:IotaWallet::walletplugin>
+$<$<STREQUAL:$<TARGET_PROPERTY:IotaWallet::wallet,TYPE>,STATIC_LIBRARY>:IotaWallet::qwalletplugin>
 ```
 
 
