@@ -35,7 +35,7 @@ FetchContent_MakeAvailable(IotaAddressWallet)
 
 
 if(USE_QML)
-	find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick)
+	find_package(Qt6 COMPONENTS Core Gui Quick)
 else()
 	find_package(Qt6 COMPONENTS Core)
 endif()
